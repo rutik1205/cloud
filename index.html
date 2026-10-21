@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Files to OpenFile</title>
+    <link rel="icon" href="data:,">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -172,7 +173,7 @@
         const ownerButton = document.getElementById('ownerButton');
         const deleteButton = document.getElementById('deleteButton');
         const repoOwner = 'rutik1205'; // Your GitHub username
-        const repoName = 'WorkZen '; // Your repository name
+        const repoName = 'WorkZen'; // Your repository name
         // NOTE: Replace this placeholder with your encrypted token string.
         // The token uses a per-letter Caesar cipher shift of +3 to encrypt.
         // To decrypt, shift each letter in the encrypted token by -3.
@@ -239,9 +240,11 @@
         // Fetch and display the list of files in the repository
         async function fetchFiles() {
             try {
-                const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/`, {
+                const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/contents/`, {
                     headers: {
-                        'Authorization': `token ${getToken()}`
+                        'Authorization': `token ${getToken()}`,
+                        'Accept': 'application/vnd.github+json',
+                        'X-GitHub-Api-Version': '2022-11-28'
                     }
                 });
 
@@ -264,7 +267,7 @@
                 const fileLink = document.createElement('a');
 
                 // Construct the raw URL for the file
-                fileLink.href = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${file.name}`;
+                fileLink.href = `https://raw.githubusercontent.com/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/main/${file.path.split('/').map(encodeURIComponent).join('/')}`;
                 fileLink.textContent = file.name;
                 fileLink.target = '_blank'; // Open in a new tab
 
@@ -299,55 +302,81 @@
         // Function to rename a file in the repository
         async function renameFile(oldName, newName) {
             try {
-                const getFileResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${oldName}`, {
+                const oldPath = oldName.split('/').map(encodeURIComponent).join('/');
+                const newPath = newName.split('/').map(encodeURIComponent).join('/');
+                const baseUrl = `https://api.github.com/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/contents/`;
+
+                const getFileResponse = await fetch(baseUrl + oldPath, {
+                    headers: { 'Authorization': `token ${getToken()}`, 'Accept': 'application/vnd.github+json' }
+                });
+                if (!getFileResponse.ok) {
+                    const data = await getFileResponse.json().catch(() => ({}));
+                    handleError(getFileResponse.status, data);
+                    return;
+                }
+
+                const fileData = await getFileResponse.json();
+                if (!fileData.content || fileData.encoding !== 'base64') {
+                    showNotification('GitHub did not return file content; this file may be too large to rename.');
+                    return;
+                }
+
+                // Do not overwrite an existing destination file.
+                const destinationResponse = await fetch(baseUrl + newPath, {
+                    headers: { 'Authorization': `token ${getToken()}`, 'Accept': 'application/vnd.github+json' }
+                });
+                if (destinationResponse.ok) {
+                    showNotification('A file with the new name already exists.');
+                    return;
+                }
+                if (destinationResponse.status !== 404) {
+                    const data = await destinationResponse.json().catch(() => ({}));
+                    handleError(destinationResponse.status, data);
+                    return;
+                }
+
+                const createResponse = await fetch(baseUrl + newPath, {
+                    method: 'PUT',
                     headers: {
-                        'Authorization': `token ${getToken()}`
-                    }
+                        'Authorization': `token ${getToken()}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github+json'
+                    },
+                    body: JSON.stringify({
+                        message: `Rename ${oldName} to ${newName}`,
+                        content: fileData.content.replace(/\s/g, ''),
+                        branch: 'main'
+                    })
                 });
 
-                if (getFileResponse.ok) {
-                    const fileData = await getFileResponse.json();
-                    const fileContent = fileData.content;
-                    const sha = fileData.sha;
+                if (!createResponse.ok) {
+                    const errorData = await createResponse.json().catch(() => ({}));
+                    handleError(createResponse.status, errorData);
+                    return;
+                }
 
-                    const deleteResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${oldName}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `token ${getToken()}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: `Rename ${oldName} to ${newName}`,
-                            sha: sha
-                        })
-                    });
+                // Delete the old path only after the new path was created successfully.
+                const deleteResponse = await fetch(baseUrl + oldPath, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `token ${getToken()}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github+json'
+                    },
+                    body: JSON.stringify({
+                        message: `Remove old name after rename to ${newName}`,
+                        sha: fileData.sha,
+                        branch: 'main'
+                    })
+                });
 
-                    if (deleteResponse.ok) {
-                        const createResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${newName}`, {
-                            method: 'PUT',
-                            headers: {
-                                'Authorization': `token ${token}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                message: `Rename ${oldName} to ${newName}`,
-                                content: fileContent
-                            })
-                        });
-
-                        if (createResponse.ok) {
-                            showNotification('File renamed successfully!');
-                            fetchFiles(); // Refresh the file list after renaming
-                        } else {
-                            const errorData = await createResponse.json();
-                            handleError(createResponse.status, errorData);
-                        }
-                    } else {
-                        const errorData = await deleteResponse.json();
-                        handleError(deleteResponse.status, errorData);
-                    }
+                if (deleteResponse.ok) {
+                    showNotification('File renamed successfully!');
+                    fetchFiles();
                 } else {
-                    console.error('Error fetching file:', getFileResponse.statusText);
+                    const errorData = await deleteResponse.json().catch(() => ({}));
+                    showNotification('New file was created, but the old file could not be deleted. Check the repository.');
+                    handleError(deleteResponse.status, errorData);
                 }
             } catch (error) {
                 console.error('Error renaming file:', error);
@@ -358,7 +387,9 @@
         // Function to delete a file in the repository
         async function deleteFile(fileName) {
             try {
-                const getFileResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${fileName}`, {
+                const encodedFileName = fileName.split('/').map(encodeURIComponent).join('/');
+                const fileApiUrl = `https://api.github.com/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/contents/${encodedFileName}`;
+                const getFileResponse = await fetch(fileApiUrl, {
                     headers: {
                         'Authorization': `token ${getToken()}`
                     }
@@ -368,10 +399,10 @@
                     const fileData = await getFileResponse.json();
                     const sha = fileData.sha;
 
-                    const deleteResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${fileName}`, {
+                    const deleteResponse = await fetch(fileApiUrl, {
                         method: 'DELETE',
                         headers: {
-                            'Authorization': `token ${token}`,
+                            'Authorization': `token ${getToken()}`,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -457,15 +488,38 @@
                 const fileContent = reader.result.split(',')[1]; // Get base64 content
 
                 try {
-                    const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`, {
+                    const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+                    const apiUrl = `https://api.github.com/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/contents/${encodedPath}`;
+                    let existingSha = null;
+
+                    const existingResponse = await fetch(apiUrl, {
+                        headers: {
+                            'Authorization': `token ${getToken()}`,
+                            'Accept': 'application/vnd.github+json'
+                        }
+                    });
+
+                    if (existingResponse.ok) {
+                        const existingData = await existingResponse.json();
+                        existingSha = existingData.sha;
+                    } else if (existingResponse.status !== 404) {
+                        const errorData = await existingResponse.json().catch(() => ({}));
+                        handleError(existingResponse.status, errorData);
+                        return;
+                    }
+
+                    const response = await fetch(apiUrl, {
                         method: 'PUT',
                         headers: {
                             'Authorization': `token ${getToken()}`,
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/vnd.github+json'
                         },
                         body: JSON.stringify({
-                            message: `Upload ${filePath}`,
-                            content: fileContent
+                            message: `${existingSha ? 'Update' : 'Upload'} ${filePath}`,
+                            content: fileContent,
+                            branch: 'main',
+                            ...(existingSha ? { sha: existingSha } : {})
                         })
                     });
 
@@ -619,4 +673,4 @@
         &copy; 2025 All rights reserved.
     </footer>
 </body>
-</html>F
+</html>
