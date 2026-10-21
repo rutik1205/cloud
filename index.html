@@ -1,647 +1,622 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
-  <title>OpenFile — GitHub File Upload & Access System</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f5f7fb; --panel: #fff; --text: #202938;
-      --muted: #667085; --border: #d7dde7; --accent: #2457d6;
-      --accent-text: #fff; --danger: #b42318; --soft: #edf2ff;
-    }
-    body.dark {
-      color-scheme: dark;
-      --bg: #111827; --panel: #1f2937; --text: #e5e7eb;
-      --muted: #aab4c3; --border: #374151; --accent: #7ba2ff;
-      --accent-text: #111827; --danger: #ff8585; --soft: #263754;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; font-family: Arial, Helvetica, sans-serif;
-      background: var(--bg); color: var(--text);
-      transition: background .2s, color .2s;
-    }
-    header {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 16px; flex-wrap: wrap; padding: 18px max(18px, calc((100% - 1080px)/2));
-      background: var(--panel); border-bottom: 1px solid var(--border);
-    }
-    h1 { margin: 0; font-size: 25px; }
-    h2 { font-size: 19px; margin: 0 0 14px; }
-    p { line-height: 1.5; }
-    main { max-width: 1080px; margin: 26px auto; padding: 0 18px; }
-    .panel {
-      background: var(--panel); border: 1px solid var(--border);
-      border-radius: 12px; padding: 22px; margin-bottom: 18px;
-    }
-    .muted { color: var(--muted); font-size: 14px; }
-    .actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 12px 0; }
-    button, input { font: inherit; border-radius: 7px; padding: 10px 12px; }
-    button {
-      cursor: pointer; border: 1px solid var(--border);
-      color: var(--text); background: var(--panel);
-    }
-    button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-    button.danger { color: var(--danger); }
-    button:disabled { opacity: .55; cursor: wait; }
-    input[type="text"], input[type="password"], input[type="file"] {
-      max-width: 100%; color: var(--text); background: var(--panel); border: 1px solid var(--border);
-    }
-    input[type="text"], input[type="password"] { width: 100%; }
-    .grow { flex: 1; min-width: 180px; }
-    #dropZone {
-      margin-top: 14px; border: 2px dashed var(--border); border-radius: 10px;
-      text-align: center; padding: 28px 14px; transition: background .15s;
-    }
-    #dropZone.dragover { border-color: var(--accent); background: var(--soft); }
-    #fileList { list-style: none; margin: 12px 0 0; padding: 0; }
-    .file-row {
-      display: flex; justify-content: space-between; align-items: center;
-      gap: 12px; flex-wrap: wrap; padding: 13px 0; border-bottom: 1px solid var(--border);
-    }
-    .file-row:last-child { border-bottom: 0; }
-    .file-name { font-weight: 600; overflow-wrap: anywhere; }
-    .file-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
-    .file-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-    #notifications {
-      position: fixed; z-index: 100; top: 14px; right: 14px;
-      width: min(360px, calc(100% - 28px));
-    }
-    .notice {
-      background: var(--panel); color: var(--text); border: 1px solid var(--border);
-      border-left: 4px solid var(--accent); border-radius: 8px;
-      padding: 12px; margin-bottom: 9px; box-shadow: 0 4px 16px #00000012;
-      overflow-wrap: anywhere;
-    }
-    .notice.error { border-left-color: var(--danger); }
-    footer { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; }
-    [hidden] { display: none !important; }
-    @media (max-width: 600px) {
-      header { padding: 16px; } main { margin-top: 16px; }
-      .panel { padding: 16px; } .file-row { align-items: flex-start; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Files to OpenFile</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: left; /* Align content to the left */
+            transition: background-color 0.3s, color 0.3s; /* Smooth transition for dark mode */
+        }
+        input[type="file"], input[type="text"] {
+            margin: 10px 0;
+            padding: 5px;
+        }
+        button {
+            margin: 5px 0;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 5px 0;
+        }
+        #refreshButton {
+            display: inline-block;
+            margin-left: 10px;
+        }
+        #refreshSpinner {
+            display: none;
+            margin-left: 10px;
+        }
+        #controlsContainer {
+            display: none; /* Hide all controls initially */
+        }
+        #notificationContainer {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            width: 300px;
+            max-height: 90vh;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .notification {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .notification button {
+            margin-right: 5px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #777;
+        }
+        #darkModeButton {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.225);
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        #darkModeButton:hover {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .dark-mode {
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .dark-mode #notificationContainer {
+            background-color: #333;
+            border-color: #555;
+        }
+        .dark-mode .notification {
+            background-color: #444;
+            border-color: #666;
+        }
+        .dark-mode footer {
+            color: #bbb;
+        }
+        #dropZone {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        #dropZone.dragover {
+            background-color: #f0f0f0;
+        }
+    </style>
+    <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "p1l8zvsu64");
+</script>
 </head>
 <body>
-  <header>
-    <div>
-      <h1>OpenFile</h1>
-      <div class="muted">Open-source File Upload &amp; Access System</div>
+    <h1>Open File (Open-source File Upload, access System)</h1>
+
+    <div id="roleSelection">
+        <button id="adminButton">Admin</button>
+        <button id="clientButton">Client</button>
+        <button id="liveChatButton">Join Live Chat</button>
+        <button id="generateEncryptedTokenButton">Generate Encrypted Token</button>
     </div>
-    <button id="darkModeButton" type="button">Dark / Light Mode</button>
-  </header>
+    <p style="font-size: small;">open AI tools</p>
+    <button id="openChatGptButton" onclick="window.open('https://chatgpt.com/')">ChatGPT</button>
+    <button id="openCopilotButton" onclick="window.open('https://copilot.microsoft.com/')">Copilot</button>
 
-  <main>
-    <section class="panel" id="connectionPanel">
-      <h2>GitHub Repository</h2>
-      <p class="muted">
-        Configure the repository you want to access. A token is needed for private
-        repositories and write operations. For a public repository, clients can browse
-        files without a token.
-      </p>
-      <div class="actions">
-        <input id="repoOwner" class="grow" type="text" value="utik1205" aria-label="GitHub repository owner" placeholder="Repository owner">
-        <input id="repoName" class="grow" type="text" value="WorkZen" aria-label="GitHub repository name" placeholder="Repository name (no spaces unless part of actual name)">
-        <input id="branchName" class="grow" type="text" value="main" aria-label="Git branch" placeholder="Branch">
-      </div>
-      <div class="actions">
-        <input id="githubToken" type="password" class="grow" autocomplete="off" spellcheck="false"
-          placeholder="GitHub token (optional for public read-only browsing)" aria-label="GitHub token">
-        <button id="showTokenButton" type="button">Show</button>
-      </div>
-      <p class="muted">
-        Security: this single-file version sends the token from your browser directly to GitHub.
-        Do not use it on a public/shared computer or publish a token inside this HTML. Prefer a
-        fine-grained token limited to this repository with Contents read/write permission.
-      </p>
-      <div class="actions">
-        <button id="clientButton" class="primary" type="button">Client — Browse Files</button>
-        <button id="adminButton" type="button">Admin — Enable Changes</button>
-        <button id="liveChatButton" type="button">Join Live Chat</button>
-        <button id="openChatGptButton" type="button">ChatGPT</button>
-        <button id="openCopilotButton" type="button">Copilot</button>
-      </div>
-      <p id="roleStatus" class="muted" aria-live="polite">Enter repository details and choose Client or Admin.</p>
-    </section>
 
-    <section class="panel" id="adminControls" hidden>
-      <h2>Upload File</h2>
-      <div class="actions">
-        <input type="file" id="fileInput" aria-label="Choose file">
-      </div>
-      <div class="actions">
-        <input type="text" id="newFileName" placeholder="Optional file name or relative path" aria-label="New file name">
-        <button id="uploadButton" class="primary" type="button">Upload</button>
-      </div>
-      <div id="dropZone" tabindex="0">Drag and drop a file here to upload</div>
-      <p class="muted">Maximum file size: 10 MB. Uploading an existing path replaces that file.</p>
-      <div class="actions">
-        <button id="ownerButton" type="button">Lock Admin Mode</button>
-      </div>
-    </section>
+    <div id="controlsContainer"> <!-- Wrap everything in this container -->
+        <div id="adminControls" style="display: none;">
+            <h2>Select File to Upload</h2>
+            <input type="file" id="fileInput" accept=".txt, .csv, .pdf, .ppt, .doc, .docx, .dotx, .pptx, .xlsx, .xls, .html, .css, .js, .json, .xml, .py, .java, .c, .cpp, .rb, .go, image/*, video/*" />
+            <input type="text" id="newFileName" placeholder="Enter new file name (optional)" />
+            <button id="uploadButton">Upload</button>
+            <div id="dropZone">Drag and drop files here to upload</div>
+            <button id="renameButton">Rename File</button>
+            <button id="ownerButton">Owner</button>
+            <button id="deleteButton" style="display: none;">Delete File</button>
+        </div>
 
-    <section class="panel" id="filesPanel" hidden>
-      <div class="actions" style="justify-content:space-between">
-        <h2 style="margin:0">Files in Repository</h2>
-        <span id="fileCount" class="muted"></span>
-      </div>
-      <div class="actions">
-        <input id="searchBar" class="grow" type="text" placeholder="Search files..." aria-label="Search files">
-        <button id="refreshButton" type="button">Refresh Files</button>
-      </div>
-      <p id="fileStatus" class="muted" aria-live="polite"></p>
-      <ul id="fileList"></ul>
-    </section>
-  </main>
+        <h2>Files in Repository:</h2>
+        <input type="text" id="searchBar" placeholder="Search files..." />
+        <button id="refreshButton">Refresh Files</button>
+        <img id="refreshSpinner" src="spinner.gif" alt="Refreshing" style="display: none;">
+        <ul id="fileList"></ul>
+    </div>
 
-  <div id="notifications" aria-live="polite"></div>
-  <footer>&copy; 2026 OpenFile</footer>
+    <div id="notificationContainer">
+        <p><strong>Notifications</strong></p>
+    </div>
 
-  <script>
-    "use strict";
+    <button id="darkModeButton">Dark/Light Mode</button>
 
-    // Repository configuration is editable in the page.
-    // Never hardcode or obfuscate a real GitHub token in client-side code.
-    const $ = (id) => document.getElementById(id);
-    const MAX_FILE_BYTES = 10 * 1024 * 1024;
+    <script>
+        const adminButton = document.getElementById('adminButton');
+        const clientButton = document.getElementById('clientButton');
+        const uploadButton = document.getElementById('uploadButton');
+        const refreshButton = document.getElementById('refreshButton');
+        const refreshSpinner = document.getElementById('refreshSpinner');
+        const fileInput = document.getElementById('fileInput');
+        const newFileNameInput = document.getElementById('newFileName');
+        const fileList = document.getElementById('fileList');
+        const adminControls = document.getElementById('adminControls');
+        const controlsContainer = document.getElementById('controlsContainer'); // Reference to the controls container
+        const searchBar = document.getElementById('searchBar');
+        const notificationContainer = document.getElementById('notificationContainer');
+        const darkModeButton = document.getElementById('darkModeButton');
+        const dropZone = document.getElementById('dropZone');
+        const liveChatButton = document.getElementById('liveChatButton');
+        const renameButton = document.getElementById('renameButton');
+        const ownerButton = document.getElementById('ownerButton');
+        const deleteButton = document.getElementById('deleteButton');
+        const repoOwner = 'rutik1205'; // Your GitHub username
+        const repoName = 'WorkZen '; // Your repository name
+        // NOTE: Replace this placeholder with your encrypted token string.
+        // The token uses a per-letter Caesar cipher shift of +3 to encrypt.
+        // To decrypt, shift each letter in the encrypted token by -3.
+        // For example, if encrypting: 'abc' with shift 3, you get 'def' - to decrypt, shift 'd' to 'a', etc.
+        const encryptedToken = 'jkeebdw_11EYC6IO0fuskvjpIN0snc3KEjJEAbPoGlCRr7dvQOD0mC2e2be9GzDbBD5E2OLMLO9qaYyh0m';
+        const tokenShift = 3; // each letter was shifted +3 when encrypting, decrypt with -3
 
-    let isAdmin = false;
-    let currentFiles = [];
-    let busy = false;
-
-    function config() {
-      const owner = $("repoOwner").value.trim();
-      const repo = $("repoName").value.trim();
-      const branch = $("branchName").value.trim() || "main";
-      if (!owner || !repo) throw new Error("Enter the repository owner and name.");
-      return { owner, repo, branch };
-    }
-
-    function token() {
-      return $("githubToken").value.trim();
-    }
-
-    function apiUrl(path = "") {
-      const { owner, repo } = config();
-      const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents`;
-      if (!path) return base;
-      return `${base}/${path.split("/").map(encodeURIComponent).join("/")}`;
-    }
-
-    function headers(extra = {}) {
-      const result = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        ...extra
-      };
-      if (token()) result.Authorization = `Bearer ${token()}`;
-      return result;
-    }
-
-    async function githubRequest(url, options = {}) {
-      const response = await fetch(url, {
-        ...options,
-        headers: headers(options.headers || {})
-      });
-      const text = await response.text();
-      let data = {};
-      try { data = text ? JSON.parse(text) : {}; }
-      catch { data = { message: text || "Unexpected GitHub response." }; }
-
-      if (!response.ok) {
-        let message = data.message || `GitHub returned HTTP ${response.status}.`;
-        if (response.status === 401) message = "GitHub rejected the token. Check it is valid and has not expired or been revoked.";
-        if (response.status === 403) message = "GitHub denied access. Check token permissions and API rate limits.";
-        if (response.status === 404) message = "Repository, branch, or file not found. Check owner, repository name, branch, and access permissions.";
-        if (response.status === 409) message = "GitHub reported a conflict. Refresh the file list and try again.";
-        if (response.status === 422) message = "GitHub rejected the request. Check the path, file content, and branch.";
-        const error = new Error(message);
-        error.status = response.status;
-        throw error;
-      }
-      return data;
-    }
-
-    function notify(message, isError = false) {
-      const box = document.createElement("div");
-      box.className = "notice" + (isError ? " error" : "");
-      const text = document.createElement("div");
-      text.textContent = message;
-      const close = document.createElement("button");
-      close.type = "button";
-      close.textContent = "Dismiss";
-      close.style.marginTop = "8px";
-      close.addEventListener("click", () => box.remove());
-      box.append(text, close);
-      $("notifications").appendChild(box);
-      window.setTimeout(() => box.remove(), 8000);
-    }
-
-    function setBusy(value) {
-      busy = value;
-      ["uploadButton", "refreshButton", "clientButton", "adminButton"].forEach(id => {
-        $(id).disabled = value;
-      });
-    }
-
-    function formatSize(bytes) {
-      if (!Number.isFinite(bytes)) return "";
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    }
-
-    function safeFilePath(value) {
-      const path = String(value || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
-      if (!path || path.length > 500 ||
-          path.split("/").some(part => !part || part === "." || part === "..")) {
-        throw new Error("Invalid file path. Use a file name or a relative path without '..'.");
-      }
-      return path;
-    }
-
-    async function fetchFiles() {
-      setBusy(true);
-      $("fileStatus").textContent = "Loading files…";
-      $("fileList").replaceChildren();
-
-      try {
-        const data = await githubRequest(apiUrl());
-        if (!Array.isArray(data)) {
-          throw new Error("The repository root was not returned as a file list.");
-        }
-        currentFiles = data;
-        renderFileList();
-        $("fileStatus").textContent = data.length ? "" : "No files found in the repository root.";
-      } catch (error) {
-        currentFiles = [];
-        $("fileStatus").textContent = error.message;
-        notify(error.message, true);
-      } finally {
-        setBusy(false);
-      }
-    }
-
-    function renderFileList() {
-      const query = $("searchBar").value.trim().toLowerCase();
-      const visible = currentFiles.filter(file =>
-        file.name.toLowerCase().includes(query) ||
-        file.path.toLowerCase().includes(query)
-      );
-      $("fileCount").textContent = `${visible.length} item${visible.length === 1 ? "" : "s"}`;
-      const list = $("fileList");
-      list.replaceChildren();
-
-      if (!visible.length) {
-        const empty = document.createElement("li");
-        empty.className = "muted";
-        empty.textContent = query ? "No matching files." : "No files in this folder.";
-        list.appendChild(empty);
-        return;
-      }
-
-      visible.forEach(file => {
-        const li = document.createElement("li");
-        li.className = "file-row";
-
-        const info = document.createElement("div");
-        const name = document.createElement("div");
-        name.className = "file-name";
-        name.textContent = (file.type === "dir" ? "📁 " : "📄 ") + file.name;
-        const meta = document.createElement("div");
-        meta.className = "file-meta";
-        meta.textContent = `${file.path}${file.type === "file" ? " · " + formatSize(file.size) : ""}`;
-        info.append(name, meta);
-
-        const actions = document.createElement("div");
-        actions.className = "file-actions";
-
-        if (file.type === "dir") {
-          const open = document.createElement("button");
-          open.type = "button";
-          open.textContent = "Open folder";
-          open.addEventListener("click", () => browseFolder(file.path));
-          actions.appendChild(open);
-        } else {
-          const download = document.createElement("button");
-          download.type = "button";
-          download.textContent = "Download";
-          download.addEventListener("click", () => downloadFile(file));
-          actions.appendChild(download);
-        }
-
-        if (isAdmin && file.type === "file") {
-          const rename = document.createElement("button");
-          rename.type = "button";
-          rename.textContent = "Rename";
-          rename.addEventListener("click", () => renameFile(file));
-          const del = document.createElement("button");
-          del.type = "button";
-          del.className = "danger";
-          del.textContent = "Delete";
-          del.addEventListener("click", () => deleteFile(file));
-          actions.append(rename, del);
-        }
-
-        li.append(info, actions);
-        list.appendChild(li);
-      });
-    }
-
-    async function browseFolder(folderPath) {
-      setBusy(true);
-      $("fileStatus").textContent = `Loading ${folderPath}…`;
-      try {
-        const data = await githubRequest(apiUrl(folderPath));
-        currentFiles = Array.isArray(data) ? data : [data];
-        $("fileStatus").textContent = "";
-        renderFileList();
-        $("filesPanel").dataset.folder = folderPath;
-        notify(`Opened folder: ${folderPath}`);
-      } catch (error) {
-        notify(error.message, true);
-        $("fileStatus").textContent = error.message;
-      } finally {
-        setBusy(false);
-      }
-    }
-
-    async function refreshCurrentFolder() {
-      const folder = $("filesPanel").dataset.folder || "";
-      if (!folder) return fetchFiles();
-      setBusy(true);
-      try {
-        const data = await githubRequest(apiUrl(folder));
-        currentFiles = Array.isArray(data) ? data : [data];
-        renderFileList();
-        $("fileStatus").textContent = "";
-      } catch (error) {
-        notify(error.message, true);
-      } finally {
-        setBusy(false);
-      }
-    }
-
-    async function downloadFile(file) {
-      try {
-        // Use GitHub's Contents API; decode Base64 when available.
-        const data = await githubRequest(apiUrl(file.path));
-        let blob;
-        if (data.content && data.encoding === "base64") {
-          const binary = atob(data.content.replace(/\s/g, ""));
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          blob = new Blob([bytes], { type: "application/octet-stream" });
-        } else if (data.download_url) {
-          const response = await fetch(data.download_url, {
-            headers: token() ? { Authorization: `Bearer ${token()}` } : {}
-          });
-          if (!response.ok) throw new Error("Download failed.");
-          blob = await response.blob();
-        } else {
-          throw new Error("GitHub did not provide downloadable file content.");
-        }
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch (error) {
-        notify(error.message, true);
-      }
-    }
-
-    function requireAdmin() {
-      if (!isAdmin) throw new Error("Choose Admin mode before making changes.");
-      if (!token()) throw new Error("A GitHub token with repository Contents write permission is required.");
-    }
-
-    async function uploadFile(file) {
-      try {
-        requireAdmin();
-        if (!file) throw new Error("Choose a file first.");
-        if (file.size > MAX_FILE_BYTES) throw new Error("File size exceeds the 10 MB limit.");
-
-        let path = $("newFileName").value.trim() || file.name;
-        path = safeFilePath(path);
-        const { branch } = config();
-
-        // Convert file to Base64 safely, including non-ASCII/binary files.
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        let binary = "";
-        const chunkSize = 0x8000;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-        }
-        const content = btoa(binary);
-
-        let sha;
-        try {
-          const existing = await githubRequest(apiUrl(path));
-          sha = existing.sha;
-        } catch (error) {
-          if (error.status !== 404) throw error;
-        }
-
-        await githubRequest(apiUrl(path), {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `${sha ? "Update" : "Upload"} ${path}`,
-            content,
-            branch,
-            ...(sha ? { sha } : {})
-          })
-        });
-
-        notify(`Uploaded ${path} successfully.`);
-        $("fileInput").value = "";
-        $("newFileName").value = "";
-        await refreshCurrentFolder();
-      } catch (error) {
-        notify(error.message, true);
-      }
-    }
-
-    async function renameFile(file) {
-      try {
-        requireAdmin();
-        const newPathRaw = prompt("Enter the new file name or relative path:", file.path);
-        if (newPathRaw === null) return;
-        const newPath = safeFilePath(newPathRaw);
-        if (newPath === file.path) return notify("The name is unchanged.");
-        const { branch } = config();
-
-        let source = await githubRequest(apiUrl(file.path));
-        if (!source.content || source.encoding !== "base64") {
-          throw new Error("GitHub did not return file content. This file may be too large to rename with the Contents API.");
-        }
-
-        try {
-          await githubRequest(apiUrl(newPath));
-          throw new Error("A file already exists at the new path.");
-        } catch (error) {
-          if (error.status !== 404) throw error;
-        }
-
-        const created = await githubRequest(apiUrl(newPath), {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `Rename ${file.path} to ${newPath}`,
-            content: source.content.replace(/\s/g, ""),
-            branch
-          })
-        });
-
-        try {
-          await githubRequest(apiUrl(file.path), {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: `Remove old name after rename to ${newPath}`,
-              sha: source.sha,
-              branch
-            })
-          });
-        } catch (error) {
-          // Best-effort rollback: preserve the source if delete failed.
-          try {
-            const destination = await githubRequest(apiUrl(newPath));
-            if (destination.sha === created.content.sha) {
-              await githubRequest(apiUrl(newPath), {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  message: `Rollback incomplete rename of ${file.path}`,
-                  sha: destination.sha,
-                  branch
-                })
-              });
+        // Simple shift + base64 decryption used at runtime in the browser
+        function simpleDecrypt(encryptedBase64, shift) {
+            try {
+                const shifted = atob(encryptedBase64);
+                return Array.from(shifted).map(c => String.fromCharCode(c.charCodeAt(0) - shift)).join('');
+            } catch (e) {
+                console.error('Failed to decrypt token', e);
+                return '';
             }
-          } catch (rollbackError) {
-            console.error("Rename rollback failed:", rollbackError);
-          }
-          throw error;
         }
 
-        notify("File renamed successfully.");
-        await refreshCurrentFolder();
-      } catch (error) {
-        notify(error.message, true);
-      }
-    }
+        // Simple encrypt helper (used by the on-page generator) - mirrors the decryption
+        function simpleEncrypt(plain, shift) {
+            const shifted = Array.from(plain).map(c => String.fromCharCode(c.charCodeAt(0) + shift)).join('');
+            return btoa(shifted);
+        }
 
-    async function deleteFile(file) {
-      try {
-        requireAdmin();
-        if (!confirm(`Delete "${file.path}" from GitHub? This cannot be undone easily.`)) return;
-        const { branch } = config();
-        const data = await githubRequest(apiUrl(file.path));
-        await githubRequest(apiUrl(file.path), {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `Delete ${file.path}`,
-            sha: data.sha,
-            branch
-          })
+        // Cached decrypted token accessor
+        function getToken() {
+            if (!window.__decryptedGithubToken) {
+                window.__decryptedGithubToken = simpleDecrypt(encryptedToken, tokenShift);
+            }
+            return window.__decryptedGithubToken || '';
+        }
+        const passcode = String.fromCharCode(49 + 1, 53 + 1, 48 + 1, 49 + 1, 48 + 1).split('').map(char => String.fromCharCode(char.charCodeAt(0) - 1)).join('');
+        let userName = '';
+        let generatedOtp = '';
+
+        // Disable all keys and all other things excluding mouse left click and scroll
+        document.addEventListener('keydown', (e) => {
+            if (e.target !== searchBar && e.target !== newFileNameInput) {
+                e.preventDefault(); // Disable all keys except for the search bar and new file name input
+            }
         });
-        notify(`Deleted ${file.path}.`);
-        await refreshCurrentFolder();
-      } catch (error) {
-        notify(error.message, true);
-      }
-    }
 
-    $("clientButton").addEventListener("click", async () => {
-      isAdmin = false;
-      $("adminControls").hidden = true;
-      $("filesPanel").hidden = false;
-      $("roleStatus").textContent = "Client mode: file browsing enabled; changes are disabled.";
-      $("filesPanel").dataset.folder = "";
-      await fetchFiles();
-    });
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); // Disable right-click context menu
+        });
 
-    $("adminButton").addEventListener("click", async () => {
-      // A passcode embedded in HTML could be read by anyone, so this is an
-      // explicit confirmation only. GitHub token permissions control write access.
-      const confirmed = confirm(
-        "Enable Admin controls for this tab? This single-file HTML cannot securely verify an admin passcode. Continue only if you trust this device and have entered your own GitHub token."
-      );
-      if (!confirmed) return;
+        // Event listeners for role selection
+        adminButton.addEventListener('click', () => {
+            const enteredPasscode = prompt('Enter Admin Passcode:');
+            if (enteredPasscode === passcode) {
+                adminControls.style.display = 'block'; // Show admin controls
+                controlsContainer.style.display = 'block'; // Show controls container
+                fetchFiles(); // Fetch the file list
+            } else {
+                showNotification('Incorrect passcode.');
+            }
+        });
 
-      isAdmin = true;
-      $("adminControls").hidden = false;
-      $("filesPanel").hidden = false;
-      $("roleStatus").textContent = "Admin controls enabled for this tab. GitHub token permissions control actual write access.";
-      $("filesPanel").dataset.folder = "";
-      await fetchFiles();
-    });
+        clientButton.addEventListener('click', () => {
+            controlsContainer.style.display = 'block'; // Show controls container for clients
+            fetchFiles(); // Fetch the file list for clients
+        });
 
-    $("ownerButton").addEventListener("click", () => {
-      isAdmin = false;
-      $("adminControls").hidden = true;
-      renderFileList();
-      $("roleStatus").textContent = "Admin mode locked.";
-      notify("Admin mode locked. Clear the token field too if you are finished.");
-    });
+        // Fetch and display the list of files in the repository
+        async function fetchFiles() {
+            try {
+                const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/`, {
+                    headers: {
+                        'Authorization': `token ${getToken()}`
+                    }
+                });
 
-    $("uploadButton").addEventListener("click", () => uploadFile(fileInput.files[0]));
-    $("refreshButton").addEventListener("click", refreshCurrentFolder);
-    $("searchBar").addEventListener("input", renderFileList);
+                if (response.ok) {
+                    const files = await response.json();
+                    renderFileList(files); // Update the UI
+                } else {
+                    console.error('Error fetching files:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error fetching files:', error);
+            }
+        }
 
-    $("showTokenButton").addEventListener("click", () => {
-      const input = $("githubToken");
-      const visible = input.type === "text";
-      input.type = visible ? "password" : "text";
-      $("showTokenButton").textContent = visible ? "Show" : "Hide";
-    });
+        // Render the file list to the UI
+        function renderFileList(files) {
+            fileList.innerHTML = ''; // Clear the list
+            files.forEach(file => {
+                const li = document.createElement('li');
+                const fileLink = document.createElement('a');
 
-    $("darkModeButton").addEventListener("click", () => {
-      document.body.classList.toggle("dark");
-    });
+                // Construct the raw URL for the file
+                fileLink.href = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${file.name}`;
+                fileLink.textContent = file.name;
+                fileLink.target = '_blank'; // Open in a new tab
 
-    $("liveChatButton").addEventListener("click", () => {
-      window.open("https://realmsg.vercel.app", "_blank", "noopener,noreferrer");
-    });
+                // Download file to temporary memory
+                fileLink.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        const response = await fetch(fileLink.href);
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            const tempLink = document.createElement('a');
+                            tempLink.href = url;
+                            tempLink.download = file.name;
+                            document.body.appendChild(tempLink);
+                            tempLink.click();
+                            document.body.removeChild(tempLink);
+                            URL.revokeObjectURL(url); // Clean up the URL object
+                        } else {
+                            console.error('Error downloading file:', response.statusText);
+                        }
+                    } catch (error) {
+                        console.error('Error downloading file:', error);
+                    }
+                });
 
-    $("openChatGptButton").addEventListener("click", () => {
-      window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
-    });
+                li.appendChild(fileLink);
+                fileList.appendChild(li);
+            });
+        }
 
-    $("openCopilotButton").addEventListener("click", () => {
-      window.open("https://copilot.microsoft.com/", "_blank", "noopener,noreferrer");
-    });
+        // Function to rename a file in the repository
+        async function renameFile(oldName, newName) {
+            try {
+                const getFileResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${oldName}`, {
+                    headers: {
+                        'Authorization': `token ${getToken()}`
+                    }
+                });
 
-    ["dragover", "dragenter"].forEach(eventName => {
-      $("dropZone").addEventListener(eventName, event => {
-        event.preventDefault();
-        $("dropZone").classList.add("dragover");
-      });
-    });
+                if (getFileResponse.ok) {
+                    const fileData = await getFileResponse.json();
+                    const fileContent = fileData.content;
+                    const sha = fileData.sha;
 
-    ["dragleave", "drop"].forEach(eventName => {
-      $("dropZone").addEventListener(eventName, event => {
-        event.preventDefault();
-        $("dropZone").classList.remove("dragover");
-      });
-    });
+                    const deleteResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${oldName}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `token ${getToken()}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: `Rename ${oldName} to ${newName}`,
+                            sha: sha
+                        })
+                    });
 
-    $("dropZone").addEventListener("drop", event => {
-      const file = event.dataTransfer.files && event.dataTransfer.files[0];
-      if (file) uploadFile(file);
-    });
+                    if (deleteResponse.ok) {
+                        const createResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${newName}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `token ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                message: `Rename ${oldName} to ${newName}`,
+                                content: fileContent
+                            })
+                        });
 
-    // Do not disable keyboard shortcuts or right-click; those browser restrictions
-    // do not protect credentials and make the app harder to use.
-  </script>
+                        if (createResponse.ok) {
+                            showNotification('File renamed successfully!');
+                            fetchFiles(); // Refresh the file list after renaming
+                        } else {
+                            const errorData = await createResponse.json();
+                            handleError(createResponse.status, errorData);
+                        }
+                    } else {
+                        const errorData = await deleteResponse.json();
+                        handleError(deleteResponse.status, errorData);
+                    }
+                } else {
+                    console.error('Error fetching file:', getFileResponse.statusText);
+                }
+            } catch (error) {
+                console.error('Error renaming file:', error);
+                showNotification('An error occurred while renaming the file.');
+            }
+        }
+
+        // Function to delete a file in the repository
+        async function deleteFile(fileName) {
+            try {
+                const getFileResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${fileName}`, {
+                    headers: {
+                        'Authorization': `token ${getToken()}`
+                    }
+                });
+
+                if (getFileResponse.ok) {
+                    const fileData = await getFileResponse.json();
+                    const sha = fileData.sha;
+
+                    const deleteResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${fileName}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: `Delete ${fileName}`,
+                            sha: sha
+                        })
+                    });
+
+                    if (deleteResponse.ok) {
+                        showNotification('File deleted successfully!');
+                        fetchFiles(); // Refresh the file list after deletion
+                    } else {
+                        const errorData = await deleteResponse.json();
+                        handleError(deleteResponse.status, errorData);
+                    }
+                } else {
+                    console.error('Error fetching file:', getFileResponse.statusText);
+                }
+            } catch (error) {
+                console.error('Error deleting file:', error);
+                showNotification('An error occurred while deleting the file.');
+            }
+        }
+
+        // Function to generate OTP
+        function generateOtp() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
+        ownerButton.addEventListener('click', () => {
+            generatedOtp = atob('MTE3MDk=');
+            const enteredOtp = prompt('Enter the OTP:');
+            if (enteredOtp === generatedOtp) {
+                deleteButton.style.display = 'block'; // Show delete button
+            } else {
+                showNotification('Incorrect OTP.');
+            }
+        });
+
+        deleteButton.addEventListener('click', () => {
+            const fileName = prompt('Enter the file name to delete:');
+            if (fileName) {
+                deleteFile(fileName);
+            } else {
+                showNotification('File name is required.');
+            }
+        });
+
+        uploadButton.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            const newFileName = newFileNameInput.value.trim();
+
+            if (!file) {
+                showNotification('Please select a file to upload.');
+                return;
+            }
+
+            // Check file size (for example, limit to 10MB)
+            const maxSizeInMB = 10;
+            if (file.size > maxSizeInMB * 1024 * 1024) {
+                showNotification(`File size exceeds the limit of ${maxSizeInMB}MB.`);
+                return;
+            }
+
+            let filePath = file.name;
+            if (newFileName) {
+                const newFileExtension = newFileName.split('.').pop().toLowerCase();
+                const originalFileExtension = file.name.split('.').pop().toLowerCase();
+
+                if (newFileExtension !== originalFileExtension) {
+                    showNotification('File extension does not match the original file.');
+                    return;
+                }
+
+                filePath = newFileName;
+            }
+
+            const fileExtension = filePath.split('.').pop().toLowerCase();
+
+            // Use FileReader to read the file
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const fileContent = reader.result.split(',')[1]; // Get base64 content
+
+                try {
+                    const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `token ${getToken()}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: `Upload ${filePath}`,
+                            content: fileContent
+                        })
+                    });
+
+                    if (response.ok) {
+                        showNotification('File uploaded successfully!');
+                        fetchFiles(); // Refresh the file list after upload
+                    } else {
+                        const errorData = await response.json();
+                        handleError(response.status, errorData);
+                    }
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    showNotification('An error occurred while uploading the file.');
+                }
+            };
+
+            reader.onerror = () => {
+                console.error('Error reading file:', reader.error);
+                showNotification('An error occurred while reading the file.');
+            };
+
+            reader.readAsDataURL(file); // Read the file as a data URL
+        });
+
+        // Function to check if the file is a coding language format
+        function isCodeFile(extension) {
+            const codeFileExtensions = ['py', 'js', 'java', 'c', 'cpp', 'rb', 'go', 'html', 'css'];
+            return codeFileExtensions.includes(extension);
+        }
+
+        // Event listener for refresh button
+        refreshButton.addEventListener('click', () => {
+            refreshButton.disabled = true; // Disable the button to prevent multiple clicks
+            refreshSpinner.style.display = 'inline-block'; // Show the spinner
+            fetchFiles().then(() => {
+                refreshButton.disabled = false; // Enable the button again
+                refreshSpinner.style.display = 'none'; // Hide the spinner
+            }); // Fetch the latest files when refresh button is clicked
+        });
+
+        // Search functionality
+        searchBar.addEventListener('input', () => {
+            const query = searchBar.value.toLowerCase();
+            const listItems = fileList.getElementsByTagName('li');
+            Array.from(listItems).forEach(li => {
+                const fileName = li.textContent.toLowerCase();
+                li.style.display = fileName.includes(query) ? 'block' : 'none'; // Show/hide based on search
+            });
+        });
+
+        function handleError(status, errorData) {
+            switch (status) {
+                case 401:
+                    showNotification('Unauthorized: Check your token permissions.');
+                    break;
+                case 404:
+                    showNotification('Repository not found: Check the repository name and owner.');
+                    break;
+                case 422:
+                    showNotification('Unprocessable Entity: Check if the file is too large or invalid.');
+                    break;
+                default:
+                    showNotification('Error uploading file: ' + errorData.message);
+            }
+            console.error('Error details:', errorData);
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <p>${message}</p>
+                <button onclick="this.parentElement.remove()">OK</button>
+                <button onclick="this.parentElement.remove()">Cancel</button>
+            `;
+            notificationContainer.appendChild(notification);
+        }
+
+        // Dark mode toggle
+        darkModeButton.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+        });
+
+        // Drag and drop functionality
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files; // Set the files to the file input
+                uploadButton.click(); // Trigger the upload button click
+            }
+        });
+
+        // Generate encrypted token helper (prompts for a plain token and shows encrypted value)
+        const generateEncryptedTokenButton = document.getElementById('generateEncryptedTokenButton');
+        if (generateEncryptedTokenButton) {
+            generateEncryptedTokenButton.addEventListener('click', () => {
+                const plain = prompt('Enter plain GitHub token to encrypt:');
+                if (!plain) {
+                    showNotification('No token provided.');
+                    return;
+                }
+                const shiftInput = prompt('Enter shift amount (integer)', String(tokenShift));
+                const shift = parseInt(shiftInput, 10) || tokenShift;
+                const enc = simpleEncrypt(plain, shift);
+                try {
+                    navigator.clipboard.writeText(enc);
+                    alert('Encrypted token copied to clipboard. Paste it into the file as the value of `encryptedToken`.\n\nEncrypted token:\n' + enc + '\n\nShift used: ' + shift);
+                    showNotification('Encrypted token copied to clipboard. Paste into file.');
+                } catch (e) {
+                    alert('Encrypted token:\n' + enc + '\n\nShift used: ' + shift);
+                }
+            });
+        }
+
+        // Event listener for rename button
+        renameButton.addEventListener('click', () => {
+            const oldName = prompt('Enter the current file name:');
+            const newName = prompt('Enter the new file name:');
+            if (oldName && newName) {
+                const oldFileExtension = oldName.split('.').pop().toLowerCase();
+                const newFileExtension = newName.split('.').pop().toLowerCase();
+
+                if (oldFileExtension !== newFileExtension) {
+                    showNotification('File extension does not match the original file.');
+                    return;
+                }
+
+                renameFile(oldName, newName);
+            } else {
+                showNotification('Both old and new file names are required.');
+            }
+        });
+
+        // Event listener for live chat button
+        liveChatButton.addEventListener('click', () => {
+            window.location.href = 'https://realmsg.vercel.app';
+        });
+    </script>
+    <footer>
+        &copy; 2025 All rights reserved.
+    </footer>
 </body>
-</html>
+</html>F
